@@ -1,0 +1,187 @@
+# ============================================================================
+#  config.yaml — конфигурация источников данных для оценки российского бизнеса
+# ----------------------------------------------------------------------------
+#  Принцип: источник = запись в этом файле. Смена/добавление/отключение
+#  источника и приоритетов делается ЗДЕСЬ, без правки data_fetcher.py.
+#
+#  Что НЕЛЬЗЯ задать только конфигом: принципиально новую, ранее неизвестную
+#  JSON-структуру ответа. Для неё нужен парсер в data_fetcher.py (registry
+#  PARSERS). Все источники ниже уже имеют парсер. Для простых источников
+#  поддержан декларативный маппинг полей через "field_map" (точечные пути).
+#
+#  Ключи API НЕ хранятся здесь. Они читаются из переменных окружения
+#  (см. секцию secrets -> env). config.yaml безопасно коммитить в репозиторий.
+# ============================================================================
+
+settings:
+  request_timeout: 20            # сек на запрос
+  retries: 2                     # повторы при сетевой ошибке/5xx
+  retry_backoff: 1.5            # множитель паузы между повторами
+  user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+  cache_dir: ".cache"           # файловый кэш ответов (json)
+  cache_ttl_hours: 24           # время жизни кэша
+  rate_limit_sleep: 0.4         # пауза между запросами к одному источнику, сек
+  # «Ранний стоп» для company_info: если карточка уже заполнена на этот уровень
+  # из дешёвого источника (Dadata 10k/сут) — НЕ дёргать дорогой OFData (100/сут).
+  # 0.0 = выключено (всегда добирать OFData: сотрудники/учредители).
+  # ~0.6 = режим экономии для массового скрининга (без сотрудников/учредителей).
+  company_info_stop_quality: 0.0
+
+# Секреты берутся из окружения. Имя -> имя переменной окружения.
+# Если переменная не задана, источник, которому нужен этот секрет,
+# автоматически считается недоступным (но не роняет процесс).
+secrets:
+  ofdata_key:    OFDATA_KEY
+  dadata_token:  DADATA_TOKEN
+  dadata_secret: DADATA_SECRET
+  checko_key:    CHECKO_KEY
+  fssp_token:    FSSP_TOKEN
+  moneyplace_token: MONEYPLACE_TOKEN   # аналитика маркетплейсов (для триангуляции серого)
+
+# ----------------------------------------------------------------------------
+#  МАРШРУТИЗАЦИЯ. Для каждого блока данных — список источников по приоритету.
+#  Fetcher идёт по списку сверху вниз: первый доступный/ответивший источник
+#  заполняет поле; следующие используются как дозаполнение пропусков (merge)
+#  и как fallback при сбое. data_quality считается по доле заполненных полей.
+# ----------------------------------------------------------------------------
+routing:
+  # Порядок источников по типам данных (первый доступный — основной).
+  company_info: [dadata, ofdata, gir_bo, egrul]
+  financials:   [gir_bo, ofdata, checko]
+  risk_flags:   [ofdata, checko, egrul, fssp]
+
+# Макро-параметры (для DCF). Тянутся отдельной функцией get_macro().
+macro:
+  source: cbr
+  fallback_key_rate: 14.5       # %, на случай недоступности cbr (актуально 06.2026)
+  fallback_ofz_10y: 13.5        # %, безрисковая ставка fallback
+
+# ----------------------------------------------------------------------------
+#  ИСТОЧНИКИ
+# ----------------------------------------------------------------------------
+sources:
+
+  # ===== 1. OFData — основной платный агрегатор (primary) ==================
+  # Один API закрывает company_info + financials + risk_flags.
+  # Тариф ~ от 600 руб/мес, оплата по запросам. Документация: https://ofdata.ru/
+  ofdata:
+    enabled: true
+    parser: ofdata               # см. PARSERS в data_fetcher.py
+    base_url: "https://api.ofdata.ru"
+    auth:
+      type: query_param
+      param: key
+      secret: ofdata_key
+    provides: [company_info, financials, risk_flags]
+    endpoints:
+      company:      { path: "/v2/company",      params: { inn: "{inn}" } }
+      entrepreneur: { path: "/v2/entrepreneur", params: { inn: "{inn}" } }   # ИП (ЕГРИП)
+      finances:     { path: "/v2/finances",     params: { inn: "{inn}" } }
+      legal_cases:  { path: "/v2/legal-cases",  params: { inn: "{inn}" } }
+      enforcements: { path: "/v2/enforcements", params: { inn: "{inn}" } }
+      contracts:    { path: "/v2/contracts",    params: { inn: "{inn}", law: "{law}" } }
+      inspections:  { path: "/v2/inspections",  params: { inn: "{inn}" } }
+      # поиск связанных компаний по ИНН учредителя/руководителя (физлица).
+      # ВНИМАНИЕ: точные параметры см. в доке OFData; на free-тарифе может быть
+      # ограничен. Параметр обёрнут в {founder} — подставляется кодом.
+      search_founder: { path: "/v2/search", params: { by: "founder", inn: "{founder}" } }
+
+  # ===== 2. ГИР БО (bo.nalog.gov.ru) — официальная отчётность ФНС =========
+  # Официальная бухотчётность из ФНС. Одна выписка содержит 3 года.
+  # PRIMARY fallback для финансов.
+  gir_bo:
+    enabled: true
+    parser: gir_bo
+    base_url: "https://bo.nalog.gov.ru"
+    auth: { type: none }
+    provides: [financials, company_info]
+    endpoints:
+      search: { path: "/advanced-search/organizations/search", params: { query: "{inn}", page: "0" } }
+      bfo:    { path: "/nbo/organizations/{org_id}/bfo/" }   # org_id берётся из search
+
+  # ===== 3. Dadata — стандартизация и базовые сведения =====================
+  # Бесплатный тариф: 10 000 запросов/сутки. Нужен токен (регистрация на dadata.ru).
+  # Хорош для company_info: статус, руководитель, ОКВЭД, адрес, ОГРН.
+  dadata:
+    enabled: true
+    parser: dadata
+    base_url: "https://suggestions.dadata.ru"
+    auth:
+      type: header
+      header: "Authorization"
+      template: "Token {secret}"
+      secret: dadata_token
+    provides: [company_info]
+    method: POST
+    endpoints:
+      find: { path: "/suggestions/api/4_1/rs/findById/party", body: { query: "{inn}" } }
+
+  # ===== 4. ЕГРЮЛ (egrul.nalog.ru) — официальный статус/выписка ============
+  # Бесплатно, без ключа. Двухшаговый: POST -> token -> выписка (PDF).
+  # Используется как fallback для статуса/факта существования.
+  egrul:
+    enabled: true
+    parser: egrul
+    base_url: "https://egrul.nalog.ru"
+    auth: { type: none }
+    provides: [company_info, risk_flags]
+    method: POST
+    endpoints:
+      search: { path: "/", body_form: { query: "{inn}", PreventChromeAutocomplete: "" } }
+
+  # ===== 5. Checko (checko.ru) — агрегатор данных о компаниях =============
+  # Используется как дополнительный источник для financials и risk_flags
+  # (через официальный API при наличии ключа checko_key).
+  checko:
+    enabled: true
+    parser: checko
+    base_url: "https://api.checko.ru"
+    scrape_url: "https://checko.ru"
+    auth:
+      type: query_param
+      param: key
+      secret: checko_key
+    provides: [financials, risk_flags, company_info]
+    endpoints:
+      finances: { path: "/v2/finances", params: { key: "{key}", inn: "{inn}" } }
+      company:  { path: "/v2/company",  params: { key: "{key}", inn: "{inn}" } }
+
+  # ===== 6. ФССП (api-ip.fssp.gov.ru) — исполнительные производства ========
+  # Официальный API банка данных ИП. Нужен токен (заявка в ФССП), есть капча/лимиты.
+  # Нестабилен с дата-центр IP (наблюдали 503). Узкий fallback для enforcements.
+  fssp:
+    enabled: false               # включить при наличии токена
+    parser: fssp
+    base_url: "https://api-ip.fssp.gov.ru"
+    auth:
+      type: query_param
+      param: token
+      secret: fssp_token
+    provides: [risk_flags]
+    endpoints:
+      search: { path: "/api/v1.0/search/legal", params: { token: "{token}", inn: "{inn}" } }
+
+  # ===== 7. ЦБ РФ (cbr.ru) — макро-параметры для DCF ======================
+  cbr:
+    enabled: true
+    parser: cbr
+    base_url: "https://www.cbr.ru"
+    auth: { type: none }
+    provides: [macro]
+    endpoints:
+      key_rate: { path: "/hd_base/KeyRate/" }
+      # ZCYC — кривая бескупонной доходности ОФЗ (безрисковая ставка)
+      zcyc:     { path: "/hd_base/zcyc_params/zcyc/" }
+
+  # ===== 8. Moneyplace — аналитика маркетплейсов (триангуляция серого) =====
+  # ТОЧКА ИНТЕГРАЦИИ на будущее. Free-trial даёт ВЕБ-доступ (ручной), API — платный.
+  # Когда появится API-ключ (MONEYPLACE_TOKEN): включить enabled, дописать парсер
+  # 'moneyplace' и эндпоинт поиска бренда -> продажи WB/Ozon в ₽ для scale_signals.
+  moneyplace:
+    enabled: false
+    parser: moneyplace
+    base_url: "https://api.moneyplace.io"
+    auth: { type: header, header: "Authorization", template: "Bearer {secret}", secret: moneyplace_token }
+    provides: [marketplace_sales]
+    endpoints:
+      brand_sales: { path: "/v1/search", params: { q: "{brand}" } }

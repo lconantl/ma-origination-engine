@@ -1,0 +1,24 @@
+# valuation_benchmarks.example.yaml
+# ПРИМЕР отраслевых бенчмарков — обобщённые ориентиры для демонстрации структуры.
+# Реальные значения — приватно в valuation_benchmarks.yaml (не публикуется).
+#   cp valuation_benchmarks.example.yaml valuation_benchmarks.yaml
+meta:
+  unit_note: "Иллюстративные значения. Формат: [низкий, медиана, высокий]."
+
+# Ключ — отрасль; data_fetcher маппит ОКВЭД → отрасль и берёт нужную запись (иначе default).
+benchmarks:
+  default:        { revenue_per_employee_rub_year: [3000000, 7000000, 15000000], ebitda_margin: [0.05, 0.10, 0.18], net_margin: [0.03, 0.07, 0.12], asset_turnover: [0.8, 1.5, 3.0], avg_wage_rub_month: [45000, 70000, 110000] }
+  it_software:    { revenue_per_employee_rub_year: [4000000, 9000000, 20000000], ebitda_margin: [0.10, 0.20, 0.35], net_margin: [0.07, 0.15, 0.25], asset_turnover: [0.7, 1.2, 2.0], avg_wage_rub_month: [90000, 150000, 250000] }
+  retail:         { revenue_per_employee_rub_year: [5000000, 10000000, 20000000], ebitda_margin: [0.03, 0.07, 0.12], net_margin: [0.01, 0.04, 0.08], asset_turnover: [1.5, 2.5, 4.0], avg_wage_rub_month: [45000, 65000, 95000] }
+  wholesale:      { revenue_per_employee_rub_year: [8000000, 18000000, 40000000], ebitda_margin: [0.02, 0.05, 0.10], net_margin: [0.01, 0.03, 0.06], asset_turnover: [1.5, 3.0, 5.0], avg_wage_rub_month: [50000, 75000, 110000] }
+  manufacturing:  { revenue_per_employee_rub_year: [3000000, 6000000, 12000000], ebitda_margin: [0.06, 0.12, 0.20], net_margin: [0.03, 0.08, 0.14], asset_turnover: [0.6, 1.2, 2.2], avg_wage_rub_month: [50000, 75000, 120000] }
+  food_service:   { revenue_per_employee_rub_year: [1500000, 3000000, 6000000], ebitda_margin: [0.08, 0.15, 0.25], net_margin: [0.04, 0.10, 0.18], asset_turnover: [1.0, 2.0, 3.5], avg_wage_rub_month: [40000, 60000, 90000] }
+  real_estate:    { revenue_per_employee_rub_year: [5000000, 12000000, 30000000], ebitda_margin: [0.30, 0.50, 0.70], net_margin: [0.15, 0.30, 0.50], asset_turnover: [0.1, 0.3, 0.6], avg_wage_rub_month: [60000, 90000, 140000] }
+
+# Рыночные ориентиры для активо-ёмких бизнесов (демо-значения).
+asset_benchmarks:
+  real_estate_office: { rub_per_m2: [80000, 150000, 250000], note: "₽/м² БЦ — пример." }
+  hotel:              { rub_per_room: [3000000, 6000000, 12000000], note: "₽/номер — пример." }
+
+triangulation_rules:
+  gray_flag_if_ratio_below: 0.6   # официальная/implied выручка ниже порога → флаг серого

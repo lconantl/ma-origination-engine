@@ -1,0 +1,57 @@
+# ── Секреты ──────────────────────────────────────────────
+.env
+*.env
+
+# ── Окружение / кэш / артефакты ──────────────────────────
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+.cache/
+.comparables_cache.json
+bot.log
+nohup.out
+
+# выходные данные пайплайна (генерируются на лету)
+output/
+charts/
+charts_carmin/
+carmin_search/
+carmin_photos/
+carmin_logo/
+carmin_hero/
+photos/
+presenton_data/
+
+# сборочные артефакты тизеров (пример лежит в samples/)
+Кармин-Авто_тизер.pdf
+*.pptx
+
+# ── Не для публикации ────────────────────────────────────
+# Чужие эталонные тизеры (NDA третьих лиц) — НЕ коммитим
+Презентации/
+# Тяжёлый поток новостей (источник comparables) — НЕ коммитим
+Messages_M&A Новости.csv
+
+# ── Внутреннее / не для покупателей (остаётся локально) ──
+SESSION_STATE.md
+WORKFLOW.md
+data_sources_report.md
+backtest_report.md
+backtest_report_v2.md
+backtest.py
+# заброшенный эксперимент Presenton
+deploy_presenton.md
+presenton_client.py
+carmin_via_presenton.py
+carmin_presenton_payload.json
+run_presenton.sh
+# пилот с ручным контентом (пример лежит в samples/)
+pilot_carmin.py
+pilot_carmin_pdf.py
+# IP-калибровка оценки (в репо — только *.example.yaml)
+valuation_params.yaml
+valuation_benchmarks.yaml
+
+# ── Явно оставляем в репозитории примеры ─────────────────
+!samples/

@@ -1,0 +1,44 @@
+# valuation_params.example.yaml
+# ПРИМЕР параметров оценки — обобщённые рыночные ориентиры, НЕ продакшн-калибровка.
+# Реальные значения (откалиброванные на сделках) хранятся приватно в
+# valuation_params.yaml (не публикуется). Скопируй этот файл при локальном запуске:
+#   cp valuation_params.example.yaml valuation_params.yaml
+meta:
+  as_of: "2026"
+  currency: RUB
+  unit_note: "Иллюстративные значения для демонстрации структуры."
+
+macro:
+  key_rate_cbr: 14.0
+  risk_free_ofz_10y: 13.0
+  equity_risk_premium: 8.0
+  profit_tax: 20
+
+# Отраслевые мультипликаторы: [низкий, медиана, высокий]
+multiples:
+  default:        { ev_ebitda: [3.5, 5.0, 6.5], ev_sales: [0.4, 0.8, 1.5], p_e: [3, 5, 7], notes: "Медиана рынка РФ." }
+  it_software:    { ev_ebitda: [5.0, 8.0, 12.0], ev_sales: [1.0, 2.5, 5.0], p_e: [6, 10, 16], notes: "Рост и масштабируемость." }
+  retail:         { ev_ebitda: [3.5, 5.0, 7.0], ev_sales: [0.2, 0.5, 1.0], p_e: [4, 6, 9], notes: "Оборачиваемость, тонкая маржа." }
+  wholesale:      { ev_ebitda: [3.0, 4.5, 6.0], ev_sales: [0.2, 0.4, 0.8], p_e: [3, 5, 7], notes: "Дистрибуция." }
+  food_service:   { ev_ebitda: [3.0, 4.5, 6.5], ev_sales: [0.5, 1.0, 1.8], p_e: [3, 5, 8], notes: "Завязка на локацию/собственника." }
+  manufacturing:  { ev_ebitda: [3.0, 4.5, 6.5], ev_sales: [0.4, 0.8, 1.5], p_e: [3, 5, 7], notes: "Капиталоёмко, важен учёт ОС." }
+  construction:   { ev_ebitda: [3.0, 4.0, 5.5], ev_sales: [0.2, 0.4, 0.7], p_e: [3, 4, 6], notes: "Проектная цикличность." }
+  transport_logistics: { ev_ebitda: [3.5, 5.0, 6.5], ev_sales: [0.4, 0.8, 1.4], p_e: [3, 5, 7], notes: "Парк/контракты." }
+  healthcare:     { ev_ebitda: [5.0, 7.0, 9.0], ev_sales: [1.0, 1.8, 3.0], p_e: [6, 9, 13], notes: "Лицензии, повторяемость." }
+  real_estate:    { ev_ebitda: [7.0, 10.0, 13.0], ev_sales: [2.0, 4.0, 7.0], p_e: [8, 12, 18], notes: "Доходная база — капитализация NOI." }
+  financial:      { ev_ebitda: [3.0, 4.0, 6.0], ev_sales: [0.5, 1.0, 2.0], p_e: [4, 6, 9], notes: "Оценка по капиталу (P/B)." }
+
+ebitda_proxy:
+  da_as_pct_of_revenue: { asset_light: 0.02, medium: 0.05, asset_heavy: 0.08 }
+  fallback_ebit_to_ebitda: 1.15
+
+adjustments:
+  dlom:    { default: 0.25, range: [0.20, 0.40] }     # скидка за неликвидность
+  control: { control_premium: 0.20, minority_discount: 0.25 }
+  key_person: [0.10, 0.30]
+  customer_concentration: [0.05, 0.25]
+  gray_revenue_haircut: [0.30, 0.70]
+
+thresholds:
+  size_revenue_rub: { micro: 120000000, small: 800000000, medium: 2000000000 }
+  data_quality_min: 0.4

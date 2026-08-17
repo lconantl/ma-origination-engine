@@ -1,0 +1,20 @@
+# data_fetcher.py
+requests>=2.31
+PyYAML>=6.0
+
+# опционально — для scrape Checko/иных HTML-источников (fallback)
+beautifulsoup4>=4.12
+lxml>=5.0
+
+# слой тизера
+matplotlib>=3.8
+python-pptx>=0.6.23
+Pillow>=10.0
+
+# рендер PDF (финальный) — Chromium через Playwright
+playwright>=1.40        # + .venv/bin/playwright install chromium
+pypdf>=4.0              # split/preview PDF
+
+# автогенерация контента (Claude через прокси) + Telegram-бот
+httpx>=0.27
+python-telegram-bot>=21.0
