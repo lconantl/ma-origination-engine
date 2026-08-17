@@ -15,6 +15,7 @@ from pathlib import Path
 
 import httpx
 
+
 # --- .env (без внешних зависимостей) ---
 # ВАЖНО: .env ПЕРЕОПРЕДЕЛЯЕТ окружение.
 def _load_env():
@@ -56,7 +57,7 @@ def _extract_text(data: dict) -> str:
             content = msg.get("content")
             if isinstance(content, str) and content:
                 out.append(content)
-            elif isinstance(content, list):   # на случай блочного content (vision-ответы)
+            elif isinstance(content, list):  # на случай блочного content (vision-ответы)
                 for b in content:
                     if isinstance(b, dict) and b.get("type") == "text" and b.get("text"):
                         out.append(b["text"])
@@ -142,12 +143,18 @@ def _balanced_objects(s: str) -> list:
             if stack > 0:
                 stack -= 1
                 if stack == 0 and start is not None:
-                    out.append(s[start:idx + 1]); start = None
+                    out.append(s[start:idx + 1]);
+                    start = None
     return out
 
 
 def extract_json(text: str):
-    """Достать валидный JSON-объект из ответа (снимает ```json и reasoning-обёртки)."""
+    """Достать валидный JSON-объект из ответа (снимает ```json и reasoning-обёртки).
+
+    ВАЖНО: не распаковывать {"content": {...}} как обёртку провайдера — в этом
+    проекте "content" часто и есть ЗНАЧИМЫЙ ключ верхнего уровня нашей собственной
+    схемы (см. схему в generate_teaser._user_prompt: {"content":..., "chart_data":...}).
+    Распаковка ломала бы такие ответы, отбрасывая соседние ключи."""
     if not text:
         raise ClaudeError("пустой текст для JSON")
     candidates = []
@@ -165,7 +172,7 @@ def extract_json(text: str):
             return json.loads(c)
         except Exception:
             continue
-    raise ClaudeError(f"не удалось распарсить JSON из ответа: {text[:300]}")
+    raise ClaudeError(f"не удалось распарсить JSON из ответа: {text[:500]}")
 
 
 def complete_json(system: str, user: str, max_tokens: int = 8000,
@@ -174,12 +181,12 @@ def complete_json(system: str, user: str, max_tokens: int = 8000,
     last = None
     for attempt in range(retries + 1):
         u = user if attempt == 0 else (
-            user + "\n\nВНИМАНИЕ: верни ТОЛЬКО валидный JSON-объект без markdown-обёрток "
-            "и без пояснений. Предыдущий ответ не распарсился.")
+                user + "\n\nВНИМАНИЕ: верни ТОЛЬКО валидный JSON-объект без markdown-обёрток "
+                       "и без пояснений. Предыдущий ответ не распарсился.")
         try:
             text = complete(system, u, max_tokens=max_tokens, temperature=temperature)
             return extract_json(text)
-        except ClaudeError as e:   # таймаут/сеть/парсинг — пробуем ещё раз
+        except ClaudeError as e:  # таймаут/сеть/парсинг — пробуем ещё раз
             last = e
     raise last
 

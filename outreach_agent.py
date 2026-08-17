@@ -33,7 +33,7 @@ def _compose(content: dict, channel: str) -> dict:
             'Верни JSON: {"subject": "<тема для письма или пусто для telegram>", '
             '"message": "<текст сообщения>"}.')
     try:
-        return cc.complete_json(SYSTEM, user, max_tokens=900, temperature=0.4)
+        return cc.complete_json(SYSTEM, user, max_tokens=2500, temperature=0.4)
     except Exception:
         # фолбэк-шаблон, если модель недоступна
         return {"subject": "Индикативная оценка вашего бизнеса",

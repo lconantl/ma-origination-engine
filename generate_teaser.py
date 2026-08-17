@@ -333,7 +333,7 @@ def _vision_pick(saved: list[dict], company_desc: str):
         blocks.append(cc.image_block(th))
     try:
         txt = cc.complete_blocks("Ты арт-директор инвестиционных презентаций.", blocks,
-                                 max_tokens=300)
+                                 max_tokens=1000)
         sel = cc.extract_json(txt)
     except Exception:
         return items[0]["path"], (items[1]["path"] if len(items) > 1 else None)
@@ -411,9 +411,13 @@ def generate_teaser(inn: str, url: str = "", on_progress=None, with_content: boo
 
     # 3) Claude -> контент + данные графиков
     log("Claude готовит оценку и тексты…")
+    # max_tokens высокий не просто так: у reasoning-моделей через Polza скрытые
+    # "размышления" считаются в тот же бюджет, что и видимый ответ (usage.completion_
+    # tokens_details.reasoning_tokens) — на сложной оценке съедали 6000+ из 8000,
+    # JSON тизера обрывался (finish_reason="length") и не парсился.
     parsed = cc.complete_json(SYSTEM_PROMPT,
                               _user_prompt(bundle, _financials_payload(fin), mult),
-                              max_tokens=8000, temperature=0.2, retries=1)
+                              max_tokens=24000, temperature=0.2, retries=1)
     content, cd = _validate_and_fill(parsed)
 
     # 4) графики
