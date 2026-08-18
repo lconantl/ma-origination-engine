@@ -71,6 +71,8 @@ class ClaudeError(RuntimeError):
 class ClaudeTimeout(ClaudeError):
     """Сетевой таймаут. Ретраить тем же промптом бессмысленно — только дольше ждать."""
 
+class ClaudeTruncated(ClaudeError):
+    """Ответ обрезан по max_tokens. Ретраить нужно с увеличенным лимитом."""
 
 def _headers():
     return {
@@ -145,6 +147,8 @@ def _post_stream(url: str, body: dict) -> str:
                         rc = delta.get("reasoning_content") or delta.get("reasoning")
                         if isinstance(rc, str):
                             reasoning.append(rc)
+                        if ch.get("finish_reason"):
+                            finish = ch["finish_reason"]
     except httpx.TimeoutException as e:
         got = len("".join(chunks))
         raise ClaudeTimeout(
@@ -286,24 +290,24 @@ def extract_json(text: str):
     raise ClaudeError(f"не удалось распарсить JSON из ответа: {text[:500]}")
 
 
-def complete_json(system: str, user: str, max_tokens: int = 8000,
+def complete_json(system: str, user: str, max_tokens: int = 16000,
                   temperature: float = 0.2, retries: int = 1) -> dict:
-    """Вызов модели с гарантией валидного JSON (ретрай с напоминанием про формат).
-
-    Ретраим ТОЛЬКО ошибки парсинга. На таймауте выходим сразу: повторный запрос
-    уйдёт с более длинным промптом и будет только медленнее — это удваивало
-    время до падения."""
     last = None
+    mt = max_tokens
     for attempt in range(retries + 1):
         u = user if attempt == 0 else (
                 user + "\n\nВНИМАНИЕ: верни ТОЛЬКО валидный JSON-объект без markdown-обёрток "
                        "и без пояснений. Предыдущий ответ не распарсился.")
         try:
-            text = complete(system, u, max_tokens=max_tokens, temperature=temperature)
+            text = complete(system, u, max_tokens=mt, temperature=temperature)
             return extract_json(text)
         except ClaudeTimeout:
             raise
-        except ClaudeError as e:  # парсинг/пустой ответ — пробуем ещё раз
+        except ClaudeTruncated as e:
+            last = e
+            mt = min(mt * 2, 32000)   # обрезало — даём больше места
+            u = user                   # промпт НЕ удлиняем
+        except ClaudeError as e:
             last = e
     raise last
 

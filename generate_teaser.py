@@ -417,7 +417,7 @@ def generate_teaser(inn: str, url: str = "", on_progress=None, with_content: boo
     # JSON тизера обрывался (finish_reason="length") и не парсился.
     parsed = cc.complete_json(SYSTEM_PROMPT,
                               _user_prompt(bundle, _financials_payload(fin), mult),
-                              max_tokens=8000, temperature=0.2, retries=1)
+                              max_tokens=16000, temperature=0.2, retries=1)
     content, cd = _validate_and_fill(parsed)
 
     # 4) графики
