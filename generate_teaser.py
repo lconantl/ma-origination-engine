@@ -417,7 +417,7 @@ def generate_teaser(inn: str, url: str = "", on_progress=None, with_content: boo
     # JSON тизера обрывался (finish_reason="length") и не парсился.
     parsed = cc.complete_json(SYSTEM_PROMPT,
                               _user_prompt(bundle, _financials_payload(fin), mult),
-                              max_tokens=24000, temperature=0.2, retries=1)
+                              max_tokens=8000, temperature=0.2, retries=1)
     content, cd = _validate_and_fill(parsed)
 
     # 4) графики
@@ -438,7 +438,7 @@ def generate_teaser(inn: str, url: str = "", on_progress=None, with_content: boo
     log("рендерю PDF…")
     safe = re.sub(r"[^\w\-]+", "_", (content.get("company_name") or inn))[:40]
     out_pdf = str(workdir / f"{safe}_тизер.pdf")
-    rh.render(content, charts, images, out_pdf=out_pdf)
+    rh.render(content, charts, images)
     log("готово")
     return (out_pdf, content) if with_content else out_pdf
 

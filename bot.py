@@ -31,14 +31,13 @@ INN_RE = re.compile(r"\b(\d{10}|\d{12})\b")
 URL_RE = re.compile(r"(https?://\S+|\bwww\.\S+|\b[a-z0-9-]+\.(?:ru|com|рф|su|io|net|org)\b\S*)", re.I)
 
 WELCOME = (
-    "Здравствуйте! Я готовлю инвестиционный M&A-тизер по российской компании.\n\n"
     "Пришлите *ИНН* компании (10 или 12 цифр). Можно добавить ссылку на сайт — "
     "это улучшит результат.\n\n"
     "Пример:\n`7743195810 https://example.ru`\n\n"
-    "В ответ придёт PDF-презентация с оценкой бизнеса, обоснованием и executive summary."
+    "В ответ придёт PDF-презентация с оценкой бизнеса, обоснованием и кратким обзором ключевых выводов, целей и сути проекта."
 )
 
-_busy: set[int] = set()   # user_id, для которых уже идёт генерация
+_busy: set[int] = set()  # user_id, для которых уже идёт генерация
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -105,7 +104,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
             log.exception("send_document failed")
             await msg.reply_text("Тизер готов, но не удалось отправить файл. Попробуйте ещё раз.")
     finally:
-        _busy.discard(uid)   # гарантированно снимаем блокировку (даже при отмене)
+        _busy.discard(uid)  # гарантированно снимаем блокировку (даже при отмене)
 
 
 def main():
