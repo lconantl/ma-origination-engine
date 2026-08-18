@@ -70,7 +70,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.reply_text("Уже готовлю предыдущий запрос — дождитесь, пожалуйста, результата.")
         return
     _busy.add(uid)
-    status = await msg.reply_text(f"Готовлю презентацию по ИНН {inn}. Это займёт 1–2 минуты…")
+    status = await msg.reply_text(f"Готовлю презентацию по ИНН {inn}. Это займёт 5-6 минут…")
 
     async def _say(text):
         try:
