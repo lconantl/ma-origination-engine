@@ -453,13 +453,15 @@ class OFDataParser:
         for o in owners:
             if o["role"] != "founder" or not o.get("inn"):
                 continue
-            res = self._data(src.request("search_founder", founder=o["inn"]))
-            recs = (res or {}).get("Записи") or (res or {}).get("records") if isinstance(res, dict) else None
-            for rec in (recs or []):
+            res = self._data(src.request("person", inn=o["inn"]))
+            for rec in ((res or {}).get("Учред") or []):
                 rinn = rec.get("ИНН")
-                if rinn and rinn != inn:
-                    related.append({"owner": o["name"], "inn": rinn,
-                                    "name": rec.get("НаимСокр") or rec.get("НаимПолн")})
+                if rinn and str(rinn) != str(inn):
+                    related.append({
+                        "owner": o["name"], "inn": rinn,
+                        "name": rec.get("НаимСокр") or rec.get("НаимПолн"),
+                        "status": rec.get("Статус"), "okved": rec.get("ОКВЭД"),
+                    })
         return {"owners": owners, "predecessors": predecessors, "related_companies": related}
 
     def financials(self, src: Source, inn: str) -> dict:
